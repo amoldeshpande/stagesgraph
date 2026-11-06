@@ -1,4 +1,4 @@
-param([switch]$SoftwareCpu)
+param([switch]$SoftwareCpu,[switch]$Headless,[switch]$CheckAcceleration)
 $ErrorActionPreference='Stop'
 $localTools=Join-Path $PSScriptRoot '.tools'
 $env:ANDROID_SDK_ROOT=Join-Path $localTools 'sdk'
@@ -28,7 +28,7 @@ AvdId=StagesApi22
 avd.ini.encoding=UTF-8
 abi.type=x86_64
 hw.cpu.arch=x86_64
-hw.cpu.ncore=1
+hw.cpu.ncore=2
 hw.ramSize=1024
 hw.lcd.width=1280
 hw.lcd.height=800
@@ -37,7 +37,7 @@ hw.keyboard=yes
 hw.gpu.enabled=yes
 hw.gpu.mode=swiftshader_indirect
 hw.mainKeys=no
-disk.dataPartition.size=512M
+disk.dataPartition.size=2G
 image.sysdir.1=$image\
 tag.id=default
 tag.display=Default
@@ -48,8 +48,10 @@ skin.dynamic=yes
 "@ | Set-Content -LiteralPath (Join-Path $avd 'config.ini') -Encoding ASCII
 $emulator=Join-Path $localTools 'emulator-manual\emulator\emulator.exe'
 if(!(Test-Path -LiteralPath $emulator)){throw 'Extract .tools/emulator.zip into .tools/emulator-manual first.'}
+if($CheckAcceleration){& $emulator -accel-check;exit $LASTEXITCODE}
 if(!(Test-Path -LiteralPath "$image\system.img")){throw 'Extract .tools/image22.zip into .tools/image22 first.'}
-$arguments=@('-avd','StagesApi22','-no-window','-no-audio','-no-snapshot','-no-boot-anim','-no-metrics','-show-kernel','-gpu','swiftshader_indirect','-feature','-Vulkan','-port','5556')
+$arguments=@('-avd','StagesApi22','-no-audio','-no-snapshot','-no-boot-anim','-no-metrics','-show-kernel','-gpu','swiftshader_indirect','-feature','-Vulkan','-port','5556')
+if($Headless){$arguments+='-no-window'}
 if($SoftwareCpu){$env:ANDROID_I_WANT_MY_TCG='yes';$arguments+=@('-accel','off')}
 & $emulator @arguments
 if($LASTEXITCODE -ne 0){throw "Emulator exited with code $LASTEXITCODE"}

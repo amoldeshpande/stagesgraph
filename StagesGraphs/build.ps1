@@ -38,6 +38,14 @@ if ($LASTEXITCODE -ne 0) { throw 'SDK installation failed' }
 if ($LASTEXITCODE -ne 0) { throw 'Parser check compilation failed' }
 & (Join-Path $env:JAVA_HOME 'bin\java.exe') -cp $env:TEMP PacketCheck
 if ($LASTEXITCODE -ne 0) { throw 'Parser checks failed' }
+& (Join-Path $env:JAVA_HOME 'bin\javac.exe') -encoding UTF-8 -d $env:TEMP (Join-Path $project 'app\src\main\java\com\stagesgraphs\Workout.java') (Join-Path $project 'checks\WorkoutCheck.java')
+if ($LASTEXITCODE -ne 0) { throw 'Workout check compilation failed' }
+& (Join-Path $env:JAVA_HOME 'bin\java.exe') -cp $env:TEMP WorkoutCheck
+if ($LASTEXITCODE -ne 0) { throw 'Workout checks failed' }
+& (Join-Path $env:JAVA_HOME 'bin\javac.exe') -encoding UTF-8 -d $env:TEMP (Join-Path $project 'app\src\main\java\com\stagesgraphs\ZoneProfiles.java') (Join-Path $project 'checks\ZoneProfilesCheck.java')
+if ($LASTEXITCODE -ne 0) { throw 'Zone/profile check compilation failed' }
+& (Join-Path $env:JAVA_HOME 'bin\java.exe') -cp $env:TEMP ZoneProfilesCheck
+if ($LASTEXITCODE -ne 0) { throw 'Zone/profile checks failed' }
 & (Join-Path $localTools 'gradle-8.7\bin\gradle.bat') -p $project --no-daemon --stacktrace '-Dorg.gradle.java.installations.auto-download=false' assembleDebug
 if ($LASTEXITCODE -ne 0) {
     Write-Output 'Using resource-free portable APK packaging after Gradle build failure.'

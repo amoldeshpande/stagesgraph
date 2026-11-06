@@ -1,6 +1,8 @@
 const fs = require('fs');
-const bytes = fs.readFileSync(process.argv[2]);
-for (const expected of ['STAGES GRAPHS  \u2022  LIVE BLUETOOTH', 'STAGES GRAPHS  \u2022  DEMO \u2014 SIMULATED DATA']) {
+const path = require('path');
+const directory = path.dirname(process.argv[2]);
+const bytes = Buffer.concat(fs.readdirSync(directory).filter(name => name.endsWith('.class')).map(name => fs.readFileSync(path.join(directory,name))));
+for (const expected of ['Connecting\u2026', '\u2014']) {
     if (!bytes.includes(Buffer.from(expected, 'utf8'))) {
         throw new Error('Compiled text is not UTF-8: ' + expected);
     }

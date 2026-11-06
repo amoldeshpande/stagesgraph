@@ -1,12 +1,15 @@
 # Called by build.ps1 when native Windows resource packaging is unavailable.
+param([switch]$Preview)
 $ErrorActionPreference='Stop'
 $project=$PSScriptRoot
 $sdk=$env:ANDROID_SDK_ROOT
 $portable=Join-Path $project 'portable-build'
+if($Preview){$portable=Join-Path $project 'portable-preview'}
 $classes=Join-Path $portable 'classes'
 $staging=Join-Path $portable 'apk'
 New-Item -ItemType Directory -Force -Path $classes,$staging | Out-Null
 $sources=Get-ChildItem -LiteralPath (Join-Path $project 'app\src\main\java\com\stagesgraphs') -Filter '*.java' | ForEach-Object {$_.FullName}
+if($Preview){$sources+=Join-Path $project 'checks\android\EmulatorPreview.java'}
 & "$env:JAVA_HOME\bin\javac.exe" -encoding UTF-8 -source 8 -target 8 -classpath "$sdk\platforms\android-28\android.jar" -d $classes @sources
 if($LASTEXITCODE -ne 0){throw 'Portable Java compilation failed'}
 & node "$project\checks\verify-text.js" "$classes\com\stagesgraphs\MainActivity.class"
@@ -19,12 +22,21 @@ if($LASTEXITCODE -ne 0){throw 'DEX conversion failed'}
 [xml]$xml=Get-Content -LiteralPath "$project\app\src\main\AndroidManifest.xml"
 $xml.manifest.SetAttribute('package','com.stagesgraphs')
 $ns='http://schemas.android.com/apk/res/android'
-$xml.manifest.SetAttribute('versionCode',$ns,'2') | Out-Null
-$xml.manifest.SetAttribute('versionName',$ns,'1.1') | Out-Null
+$xml.manifest.SetAttribute('versionCode',$ns,'4') | Out-Null
+$xml.manifest.SetAttribute('versionName',$ns,'1.3') | Out-Null
 $uses=$xml.CreateElement('uses-sdk')
 $uses.SetAttribute('minSdkVersion',$ns,'22') | Out-Null
 $uses.SetAttribute('targetSdkVersion',$ns,'22') | Out-Null
 $xml.manifest.PrependChild($uses) | Out-Null
+if($Preview){
+    $application=$xml.manifest.SelectSingleNode('application')
+    $application.SetAttribute('label',$ns,'Stages Graphs preview') | Out-Null
+    $application.SetAttribute('debuggable',$ns,'true') | Out-Null
+    $instrumentation=$xml.CreateElement('instrumentation')
+    $instrumentation.SetAttribute('name',$ns,'com.stagesgraphs.EmulatorPreview') | Out-Null
+    $instrumentation.SetAttribute('targetPackage',$ns,'com.stagesgraphs') | Out-Null
+    $xml.manifest.AppendChild($instrumentation) | Out-Null
+}
 function Convert-Element($element){
     $attributes=@($element.Attributes | Where-Object {$_.NamespaceURI -ne 'http://www.w3.org/2000/xmlns/'} | ForEach-Object {
         @{name=$_.LocalName;ns=$_.NamespaceURI;value=$_.Value}
@@ -42,6 +54,7 @@ if(!(Test-Path -LiteralPath $key)){
     if($LASTEXITCODE -ne 0){throw 'Development key generation failed'}
 }
 $apk=Join-Path (Split-Path $project -Parent) 'StagesGraphs.apk'
+if($Preview){$apk=Join-Path $portable 'StagesGraphs-preview.apk'}
 & "$sdk\build-tools\35.0.0\apksigner.bat" sign --ks $key --ks-pass pass:android --key-pass pass:android --min-sdk-version 22 --out $apk "$portable\unsigned.apk"
 if($LASTEXITCODE -ne 0){throw 'APK signing failed'}
 & "$sdk\build-tools\35.0.0\apksigner.bat" verify --verbose --min-sdk-version 22 $apk

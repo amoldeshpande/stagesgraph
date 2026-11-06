@@ -1,0 +1,56 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.stagesgraphs"
+4    android:versionCode="2"
+5    android:versionName="1.1" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="22"
+9        android:targetSdkVersion="22" />
+10
+11    <uses-permission android:name="android.permission.BLUETOOTH" />
+11-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:2:5-68
+11-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:2:22-65
+12    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+12-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:3:5-74
+12-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:3:22-71
+13
+14    <uses-feature
+14-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:4:5-90
+15        android:name="android.hardware.bluetooth_le"
+15-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:4:19-63
+16        android:required="true" />
+16-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:4:64-87
+17
+18    <application
+18-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:5:5-12:19
+19        android:allowBackup="false"
+19-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:5:106-133
+20        android:debuggable="true"
+21        android:extractNativeLibs="true"
+22        android:label="Stages Graphs"
+22-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:5:18-47
+23        android:theme="@android:style/Theme.Material.NoActionBar" >
+23-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:5:48-105
+24        <activity
+24-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:6:9-11:20
+25            android:name="com.stagesgraphs.MainActivity"
+25-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:6:19-47
+26            android:exported="true"
+26-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:6:86-109
+27            android:screenOrientation="landscape" >
+27-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:6:48-85
+28            <intent-filter>
+28-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:7:13-10:29
+29                <action android:name="android.intent.action.MAIN" />
+29-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:8:17-69
+29-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:8:25-66
+30
+31                <category android:name="android.intent.category.LAUNCHER" />
+31-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:9:17-77
+31-->C:\Users\amol\Documents\Codex\2026-11-04\i-n\outputs\stagesgraph\StagesGraphs\app\src\main\AndroidManifest.xml:9:27-74
+32            </intent-filter>
+33        </activity>
+34    </application>
+35
+36</manifest>
