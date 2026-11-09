@@ -3,7 +3,7 @@
 const net=require('net'), fs=require('fs');
 const [,,mode,...args]=process.argv;
 const socket=net.createConnection({host:'127.0.0.1',port:5557});
-let incoming=Buffer.alloc(0),remote=0,opened=false,sendQueue=[],waiting=false,result=[];
+let incoming=Buffer.alloc(0),remote=0,opened=false,sendQueue=[],waiting=false,result=[],finished=false;
 const timer=setTimeout(()=>{console.error('Emulator request timed out');socket.destroy();process.exitCode=1;},45000);
 function frame(command,a,b,data=Buffer.alloc(0)){
     const h=Buffer.alloc(24),code=Buffer.from(command).readUInt32LE();
@@ -13,12 +13,13 @@ function frame(command,a,b,data=Buffer.alloc(0)){
 function flush(){if(!waiting&&sendQueue.length){waiting=true;frame('WRTE',1,remote,sendQueue.shift());}}
 function queue(data){for(let i=0;i<data.length;i+=4096)sendQueue.push(data.subarray(i,i+4096));flush();}
 function sync(id,value){const h=Buffer.alloc(8);h.write(id);h.writeUInt32LE(Buffer.isBuffer(value)?value.length:value,4);return Buffer.isBuffer(value)?Buffer.concat([h,value]):h;}
-function finish(){clearTimeout(timer);socket.end();}
+function finish(){finished=true;clearTimeout(timer);socket.end();}
 socket.on('connect',()=>frame('CNXN',0x01000000,4096,Buffer.from('host::\0')));
 socket.on('error',e=>{clearTimeout(timer);console.error(e.message);process.exitCode=1;});
 socket.on('data',data=>{
+    if(finished)return;
     incoming=Buffer.concat([incoming,data]);
-    while(incoming.length>=24){
+    while(!finished&&incoming.length>=24){
         const len=incoming.readUInt32LE(12);if(incoming.length<24+len)break;
         const command=incoming.toString('ascii',0,4),a=incoming.readUInt32LE(4),b=incoming.readUInt32LE(8),body=incoming.subarray(24,24+len);
         incoming=incoming.subarray(24+len);

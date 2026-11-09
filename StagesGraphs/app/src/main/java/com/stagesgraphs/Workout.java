@@ -50,7 +50,10 @@ public final class Workout {
         private Integer latest, frozenCurrent;
         private long latestAt, integratedAt, covered;
         private double area;
-        public int minimum, maximum;
+        public int minimum;
+        private Integer maximum;
+
+        public Integer maximum() { return maximum; }
 
         private void reset(long now) {
             points.clear();
@@ -58,12 +61,14 @@ public final class Workout {
             area = 0;
             covered = 0;
             integratedAt = now;
-            minimum = maximum = 0;
+            minimum = 0;
+            maximum = null;
         }
         public void observe(int value, long now) {
             integrate(now);
             latest = value;
             latestAt = now;
+            if (running) trackRange(value);
         }
         public void disconnect(long now) {
             integrate(now);
@@ -96,7 +101,11 @@ public final class Workout {
             long elapsed = duration(now);
             if (!points.isEmpty() && points.get(points.size()-1).elapsed == elapsed) points.remove(points.size()-1);
             points.add(new Sample(elapsed, value));
-            if (value != null) { minimum = Math.min(minimum, value); maximum = Math.max(maximum, value); }
+            if (value != null) trackRange(value);
+        }
+        private void trackRange(int value) {
+            minimum = Math.min(minimum, value);
+            if (maximum == null || value > maximum) maximum = value;
         }
     }
 }

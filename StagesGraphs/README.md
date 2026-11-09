@@ -1,5 +1,11 @@
 # Stages Graphs
 
+## Version 1.4 split graphs
+
+Each graph shows the full workout on the left and a rolling two-minute window on the right. The right edge marks the latest workout time. Both panels share the same vertical scale and freeze when you press Stop. The heart-rate zone bands appear in both panels.
+
+Max above the left panel reports the highest reading in the full workout. It resets when you press Start.
+
 ## Version 1.3 heart-rate zones and users
 
 Tap **User → Add user**, enter a username, and enter the starting values for zones 2–5. Zone 1 is below the first value; zone 5 includes everything at or above the final value. The four values must increase. No example values are saved by default. Without a selected profile, the heart-rate graph remains unshaded.

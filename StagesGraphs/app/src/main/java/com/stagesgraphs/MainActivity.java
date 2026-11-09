@@ -182,6 +182,7 @@ public class MainActivity extends Activity {
         };
     }
     class Graph extends View {
+        static final long RECENT_MS = 120000;
         final String title,unit; final int accent,minimumMax; final Paint paint=new Paint(3);
         final Workout.Series series;String status="Disconnected";
         Graph(String t,String u,int color,int max,Workout.Series data){super(MainActivity.this);title=t;unit=u;accent=color;minimumMax=max;series=data;}
@@ -195,21 +196,46 @@ public class MainActivity extends Activity {
             float w=1000,h=getHeight()/scale,left=54,top=74,bottom=h-30,right=w-16;
             if(bottom<=top)return;
             text(c,title,10,26,18,accent);
-            text(c,"Current",620,18,12,Color.LTGRAY);
-            text(c,figure(series.current(now)),620,50,30,accent);
-            text(c,"Avg",815,18,12,Color.LTGRAY);
-            text(c,figure(series.average(now)),815,50,30,accent);
+            Integer peak=series.maximum();
+            text(c,"Max",325,18,12,Color.LTGRAY);
+            text(c,figure(peak),325,50,30,accent);
+            float gap=28;
+            float rollingWidth=(right-left-gap)/3;
+            float recentLeft=right-rollingWidth, historyRight=recentLeft-gap;
+            float averageLeft=recentLeft+rollingWidth/2;
+            text(c,"Current",recentLeft,18,12,Color.LTGRAY);
+            text(c,figure(series.current(now)),recentLeft,50,30,accent);
+            text(c,"Avg",averageLeft,18,12,Color.LTGRAY);
+            text(c,figure(series.average(now)),averageLeft,50,30,accent);
             ZoneProfiles.Profile zones=series==workout.heart?(hasWorkout?workoutZones:profiles.selected()):null;
             Integer current=series.current(now);
             String detail=workout.isRunning()&&current==null&&status.equals("Connected")?"No data":status;
-            if(zones!=null&&current!=null)detail+=" · Z"+(zones.zone(current)+1);
             text(c,detail,10,52,13,Color.LTGRAY);
-            float max=Math.max(minimumMax,(float)(Math.ceil(series.maximum/100.0)*100));
+            int highest=peak==null?0:peak;
+            float max=Math.max(minimumMax,(float)(Math.ceil(highest/100.0)*100));
             float min=Math.min(0,(float)(Math.floor(series.minimum/100.0)*100));
             if(zones!=null){
                 min=Math.max(0,zones.boundary(0)-20);
-                max=Math.max(zones.boundary(3)+20,series.maximum+5);
+                max=Math.max(zones.boundary(3)+20,highest+5);
                 for(Workout.Sample p:series.points)if(p.value!=null)min=Math.min(min,Math.max(0,p.value-5));
+            }
+            for(int i=0;i<=4;i++){
+                float y=top+(bottom-top)*i/4;
+                text(c,""+Math.round(max-(max-min)*i/4),4,y+4,12,Color.LTGRAY);
+            }
+            long duration=workout.duration(now);
+            drawPanel(c,left,historyRight,top,bottom,min,max,zones,0,Math.max(1,duration),false);
+            drawPanel(c,recentLeft,right,top,bottom,min,max,zones,duration-RECENT_MS,RECENT_MS,true);
+            if(zones!=null&&current!=null){
+                String zoneLabel="Zone "+(zones.zone(current)+1);
+                paint.setTextSize(12);
+                text(c,zoneLabel,right-paint.measureText(zoneLabel),top-6,12,Color.LTGRAY);
+            }
+        }
+        void drawPanel(Canvas c,float left,float right,float top,float bottom,float min,float max,
+                       ZoneProfiles.Profile zones,long start,long span,boolean recent){
+            text(c,recent?"Last 2 min":"Full workout",left,top-6,12,Color.LTGRAY);
+            if(zones!=null){
                 for(int i=0;i<5;i++){
                     float low=i==0?min:zones.boundary(i-1),high=i==4?max:zones.boundary(i);
                     float bandTop=bottom-(Math.min(max,high)-min)/(max-min)*(bottom-top);
@@ -222,14 +248,27 @@ public class MainActivity extends Activity {
             }
             for(int i=0;i<=4;i++){
                 float y=top+(bottom-top)*i/4;paint.setColor(Color.rgb(39,53,70));paint.setStrokeWidth(1);c.drawLine(left,y,right,y,paint);
-                text(c,""+Math.round(max-(max-min)*i/4),4,y+4,12,Color.LTGRAY);
             }
-            long duration=workout.duration(now),axisDuration=Math.max(1000,duration);
-            for(int i=0;i<=5;i++){float x=left+(right-left)*i/5;String label=Workout.time(duration*i/5);paint.setTextSize(12);float offset=i==5?paint.measureText(label):i==0?0:paint.measureText(label)/2;text(c,label,x-offset,h-7,12,Color.LTGRAY);}
+            for(int i=0;i<=4;i++){
+                float x=left+(right-left)*i/4;
+                long tick=span*i/4;
+                String label=recent&&i<4?"−"+Workout.time(span-tick):Workout.time(recent?0:tick);
+                paint.setTextSize(12);
+                float offset=i==4?paint.measureText(label):i==0?0:paint.measureText(label)/2;
+                text(c,label,x-offset,bottom+23,12,Color.LTGRAY);
+            }
             c.save();c.clipRect(left,top,right,bottom);Path path=new Path();long previous=-1;float lastX=0,lastY=0;boolean hasPoint=false;
-            for(Workout.Sample p:series.points){
+            int first=0;
+            if(recent){
+                first=series.points.size();
+                while(first>0&&series.points.get(first-1).elapsed>=start)first--;
+                // Include one preceding sample so a continuous trace crosses the clipped edge.
+                first=Math.max(0,first-1);
+            }
+            for(int index=first;index<series.points.size();index++){
+                Workout.Sample p=series.points.get(index);
                 if(p.value==null){previous=-1;continue;}
-                float x=left+(float)((double)p.elapsed/axisDuration)*(right-left);float y=bottom-(p.value-min)/(max-min)*(bottom-top);
+                float x=left+(float)((double)(p.elapsed-start)/span)*(right-left);float y=bottom-(p.value-min)/(max-min)*(bottom-top);
                 if(previous<0||p.elapsed-previous>Workout.FRESH_MS)path.moveTo(x,y);else path.lineTo(x,y);
                 previous=p.elapsed;lastX=x;lastY=y;hasPoint=true;
             }

@@ -48,6 +48,16 @@ public final class WorkoutCheck {
         check(longRide.heart.points.size()==7201 && longRide.heart.points.get(0).elapsed==0,"Two-hour workout retains all history");
         check(near(longRide.power.average(9000000),250),"Long workout average remains correct");
         check(Workout.time(7200000).equals("2:00:00") && Workout.time(61000).equals("1:01"),"Elapsed labels cover hours and minutes");
+        Workout peaks=new Workout();
+        peaks.start(0);
+        check(peaks.power.maximum()==null,"Max stays blank until a reading arrives");
+        peaks.power.observe(-20,10);
+        peaks.power.observe(-30,20);
+        peaks.stop(30);
+        peaks.power.observe(999,40);
+        check(peaks.power.maximum()==-20,"Max captures readings between graph samples and freezes on Stop");
+        peaks.start(6000);
+        check(peaks.power.maximum()==null,"Start clears the old maximum");
         System.out.println(checks+" workout checks passed.");
     }
 }
