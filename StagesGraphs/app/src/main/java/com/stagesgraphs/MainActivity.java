@@ -15,12 +15,13 @@ public class MainActivity extends Activity {
     final Handler ui = new Handler();
     BluetoothAdapter adapter;
     LinearLayout root;
-    Graph heart, power;
+    Graph heart, power, cadence;
+    final Packets.Cadence cadenceDecoder = new Packets.Cadence();
     Sensor hr, watts;
     boolean resumed;
     final Workout workout = new Workout();
     TextView elapsed;
-    Button startStop, userButton;
+    Button startStop, pauseResume, userButton;
     ZoneProfiles profiles;
     ZoneProfiles.Profile workoutZones;
     boolean hasWorkout;
@@ -29,7 +30,7 @@ public class MainActivity extends Activity {
         long now = SystemClock.elapsedRealtime();
         workout.sample(now);
         elapsed.setText(Workout.time(workout.duration(now)));
-        heart.invalidate(); power.invalidate();
+        heart.invalidate(); power.invalidate(); cadence.invalidate();
         ui.postDelayed(this,1000);
     }};
     @Override public void onCreate(Bundle state) {
@@ -43,6 +44,8 @@ public class MainActivity extends Activity {
         LinearLayout actions=new LinearLayout(this); root.addView(actions);
         heart=new Graph("Heart rate","",Color.rgb(255,106,139),220,workout.heart);
         power=new Graph("Power","W",Color.rgb(63,211,236),400,workout.power);
+        cadence=new Graph("Cadence","rpm",Color.rgb(170,150,255),120,workout.cadence);
+        cadence.setVisibility(View.GONE);
         hr=new Sensor("Heart rate","180d","2a37",heart);
         watts=new Sensor("Power meter","1818","2a63",power);
         userButton=button(actions,profiles.selected()==null?"User":profiles.selected().name,()->chooseUser());
@@ -54,16 +57,30 @@ public class MainActivity extends Activity {
             if(workout.isRunning()) workout.stop(now); else {workoutZones=profiles.selected();hasWorkout=true;workout.start(now);}
             refreshWorkout(now);
         });
+        pauseResume=button(actions,"Pause",()->{
+            long now=SystemClock.elapsedRealtime();
+            if(workout.isPaused()) workout.resume(now); else workout.pause(now);
+            refreshWorkout(now);
+        });
+        pauseResume.setEnabled(false);
         elapsed=new TextView(this); elapsed.setTextColor(Color.WHITE); elapsed.setTextSize(20);
         elapsed.setGravity(Gravity.CENTER); elapsed.setText("0:00");
         actions.addView(elapsed,new LinearLayout.LayoutParams((int)(120*getResources().getDisplayMetrics().density),-1));
         root.addView(heart,new LinearLayout.LayoutParams(-1,0,1));
         root.addView(power,new LinearLayout.LayoutParams(-1,0,1));
+        root.addView(cadence,new LinearLayout.LayoutParams(-1,0,1));
     }
     Button button(LinearLayout row,String label,Runnable action) {
         Button b=new Button(this); b.setText(label); b.setAllCaps(false); b.setTextSize(15); row.addView(b,new LinearLayout.LayoutParams(0,-2,1)); b.setOnClickListener(v->action.run());return b;
     }
-    void refreshWorkout(long now){startStop.setText(workout.isRunning()?"Stop":"Start");userButton.setEnabled(!workout.isRunning());elapsed.setText(Workout.time(workout.duration(now)));heart.invalidate();power.invalidate();}
+    void refreshWorkout(long now){
+        startStop.setText(workout.isRunning()?"Stop":"Start");
+        pauseResume.setText(workout.isPaused()?"Resume":"Pause");
+        pauseResume.setEnabled(workout.isRunning());
+        userButton.setEnabled(!workout.isRunning());
+        elapsed.setText(Workout.time(workout.duration(now)));
+        heart.invalidate();power.invalidate();cadence.invalidate();
+    }
     void saveProfiles(){
         getSharedPreferences("riders",MODE_PRIVATE).edit().putString("profiles",profiles.encode()).apply();
         userButton.setText(profiles.selected()==null?"User":profiles.selected().name);
@@ -136,9 +153,14 @@ public class MainActivity extends Activity {
         String label; UUID service,characteristic; Graph graph; BluetoothDevice device; BluetoothGatt gatt;
         boolean active; int failures; Runnable retry,timeout;
         Sensor(String l,String s,String c,Graph v){label=l;service=uuid(s);characteristic=uuid(c);graph=v;}
-        void status(String s){graph.status=s;graph.invalidate();}
+        void status(String s){graph.status=s;graph.invalidate();if(graph==power){cadence.status=s;cadence.invalidate();}}
+        void disconnectReadings(){
+            long now=SystemClock.elapsedRealtime();
+            graph.series.disconnect(now);
+            if(graph==power){cadenceDecoder.reset();workout.cadence.disconnect(now);}
+        }
         void cancelTimers(){if(retry!=null)ui.removeCallbacks(retry);if(timeout!=null)ui.removeCallbacks(timeout);}
-        void stop(){active=false;cancelTimers();graph.series.disconnect(SystemClock.elapsedRealtime());if(gatt!=null){BluetoothGatt old=gatt;gatt=null;old.disconnect();old.close();}status("Disconnected");}
+        void stop(){active=false;cancelTimers();disconnectReadings();if(gatt!=null){BluetoothGatt old=gatt;gatt=null;old.disconnect();old.close();}status("Disconnected");}
         void connect(){
             if(!resumed||device==null||gatt!=null)return;
             active=true;status("Connecting…");
@@ -147,7 +169,7 @@ public class MainActivity extends Activity {
         }
         void failed(String why){
             android.util.Log.w("StagesGraphs",label+": "+why);
-            graph.series.disconnect(SystemClock.elapsedRealtime());
+            disconnectReadings();
             cancelTimers();if(gatt!=null){BluetoothGatt old=gatt;gatt=null;old.disconnect();old.close();}
             if(active&&resumed){int delay=Math.min(30,2+(failures++*3));status("Retrying in "+delay+"s");retry=()->connect();ui.postDelayed(retry,delay*1000L);}
         }
@@ -176,7 +198,18 @@ public class MainActivity extends Activity {
                 byte[] original=c.getValue();final byte[] bytes=original==null?null:original.clone();
                 ui.post(()->{if(g!=gatt||!characteristic.equals(c.getUuid()))return;
                     Integer value=Packets.decode(bytes,characteristic.equals(uuid("2a37")));
-                    if(value!=null){graph.series.observe(value,SystemClock.elapsedRealtime());Sensor.this.status("Connected");}
+                    if(value!=null){
+                        long now=SystemClock.elapsedRealtime();
+                        graph.series.observe(value,now);
+                        if(graph==power){
+                            Integer rpm=cadenceDecoder.decode(bytes,now);
+                            if(rpm!=null){
+                                cadence.setVisibility(View.VISIBLE);
+                                workout.cadence.observe(rpm,now);
+                            }
+                        }
+                        Sensor.this.status("Connected");
+                    }
                 });
             }
         };
@@ -202,11 +235,10 @@ public class MainActivity extends Activity {
             float gap=28;
             float rollingWidth=(right-left-gap)/3;
             float recentLeft=right-rollingWidth, historyRight=recentLeft-gap;
-            float averageLeft=recentLeft+rollingWidth/2;
             text(c,"Current",recentLeft,18,12,Color.LTGRAY);
             text(c,figure(series.current(now)),recentLeft,50,30,accent);
-            text(c,"Avg",averageLeft,18,12,Color.LTGRAY);
-            text(c,figure(series.average(now)),averageLeft,50,30,accent);
+            text(c,"Avg",505,18,12,Color.LTGRAY);
+            text(c,figure(series.average(now)),505,50,30,accent);
             ZoneProfiles.Profile zones=series==workout.heart?(hasWorkout?workoutZones:profiles.selected()):null;
             Integer current=series.current(now);
             String detail=workout.isRunning()&&current==null&&status.equals("Connected")?"No data":status;

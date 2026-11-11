@@ -7,32 +7,55 @@ public final class Workout {
     public static final long FRESH_MS = 5000;
     public final Series heart = new Series();
     public final Series power = new Series();
-    private long started = -1, stopped;
+    public final Series cadence = new Series();
+    private long started = -1, stopped, pausedAt = -1;
     private boolean running;
 
     public boolean isRunning() { return running; }
+    public boolean isPaused() { return pausedAt >= 0; }
+    private boolean isRecording() { return running && !isPaused(); }
     public void start(long now) {
         started = now;
         running = true;
+        pausedAt = -1;
         heart.reset(now);
         power.reset(now);
+        cadence.reset(now);
         sample(now);
     }
     public void stop(long now) {
         if (!running) return;
+        if (!isPaused()) pause(now);
+        stopped = pausedAt;
+        pausedAt = -1;
+        running = false;
+    }
+    public void pause(long now) {
+        if (!isRecording()) return;
         sample(now);
         heart.frozenCurrent = heart.freshValue(now);
         power.frozenCurrent = power.freshValue(now);
-        stopped = now;
-        running = false;
+        cadence.frozenCurrent = cadence.freshValue(now);
+        pausedAt = now;
+    }
+    public void resume(long now) {
+        if (!isPaused()) return;
+        started += now - pausedAt;
+        pausedAt = -1;
+        heart.integratedAt = now;
+        power.integratedAt = now;
+        cadence.integratedAt = now;
+        sample(now);
     }
     public long duration(long now) {
-        return started < 0 ? 0 : Math.max(0, (running ? now : stopped) - started);
+        long end = isPaused() ? pausedAt : running ? now : stopped;
+        return started < 0 ? 0 : Math.max(0, end - started);
     }
     public void sample(long now) {
-        if (!running) return;
+        if (!isRecording()) return;
         heart.record(now);
         power.record(now);
+        cadence.record(now);
     }
     public static String time(long milliseconds) {
         long seconds = milliseconds / 1000;
@@ -68,7 +91,7 @@ public final class Workout {
             integrate(now);
             latest = value;
             latestAt = now;
-            if (running) trackRange(value);
+            if (isRecording()) trackRange(value);
         }
         public void disconnect(long now) {
             integrate(now);
@@ -79,10 +102,10 @@ public final class Workout {
         }
         public Integer current(long now) {
             if (started < 0) return null;
-            return running ? freshValue(now) : frozenCurrent;
+            return isRecording() ? freshValue(now) : frozenCurrent;
         }
         private void integrate(long now) {
-            if (!running) return;
+            if (!isRecording()) return;
             long end = latest == null ? integratedAt : Math.min(now, latestAt + FRESH_MS);
             if (end > integratedAt) {
                 long span = end - integratedAt;

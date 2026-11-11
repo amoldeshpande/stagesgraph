@@ -58,6 +58,24 @@ public final class WorkoutCheck {
         check(peaks.power.maximum()==-20,"Max captures readings between graph samples and freezes on Stop");
         peaks.start(6000);
         check(peaks.power.maximum()==null,"Start clears the old maximum");
+        Workout paused=new Workout();
+        paused.start(0);
+        paused.cadence.observe(80,0);
+        paused.pause(1000);
+        paused.cadence.observe(200,2000);
+        paused.sample(2000);
+        check(paused.duration(2000)==1000 && paused.cadence.current(2000)==80
+                && paused.cadence.maximum()==80,"Pause freezes time, readings and Max");
+        paused.cadence.observe(100,4000);
+        paused.resume(4000);
+        paused.stop(5000);
+        check(paused.duration(5000)==2000 && near(paused.cadence.average(5000),90),
+                "Resume excludes paused time and readings from the average");
+        paused.start(6000);
+        paused.pause(7000);
+        paused.stop(10000);
+        check(!paused.isPaused() && !paused.isRunning() && paused.duration(10000)==1000,
+                "Stop can end a paused workout");
         System.out.println(checks+" workout checks passed.");
     }
 }

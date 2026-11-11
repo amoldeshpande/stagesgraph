@@ -38,6 +38,10 @@ if ($LASTEXITCODE -ne 0) { throw 'SDK installation failed' }
 if ($LASTEXITCODE -ne 0) { throw 'Parser check compilation failed' }
 & (Join-Path $env:JAVA_HOME 'bin\java.exe') -cp $env:TEMP PacketCheck
 if ($LASTEXITCODE -ne 0) { throw 'Parser checks failed' }
+& (Join-Path $env:JAVA_HOME 'bin\javac.exe') -encoding UTF-8 -cp $env:TEMP -d $env:TEMP (Join-Path $project 'checks\CadenceCheck.java')
+if ($LASTEXITCODE -ne 0) { throw 'Cadence check compilation failed' }
+& (Join-Path $env:JAVA_HOME 'bin\java.exe') -cp $env:TEMP com.stagesgraphs.CadenceCheck
+if ($LASTEXITCODE -ne 0) { throw 'Cadence checks failed' }
 & (Join-Path $env:JAVA_HOME 'bin\javac.exe') -encoding UTF-8 -d $env:TEMP (Join-Path $project 'app\src\main\java\com\stagesgraphs\Workout.java') (Join-Path $project 'checks\WorkoutCheck.java')
 if ($LASTEXITCODE -ne 0) { throw 'Workout check compilation failed' }
 & (Join-Path $env:JAVA_HOME 'bin\java.exe') -cp $env:TEMP WorkoutCheck
