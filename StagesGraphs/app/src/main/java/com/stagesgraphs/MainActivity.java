@@ -52,6 +52,7 @@ public class MainActivity extends Activity {
         userButton.setSingleLine(true);userButton.setEllipsize(android.text.TextUtils.TruncateAt.END);
         button(actions,"Heart rate",()->choose(hr));
         button(actions,"Power",()->choose(watts));
+        button(actions,"Reconnect",()->reconnect());
         startStop=button(actions,"Start",()->{
             long now=SystemClock.elapsedRealtime();
             if(workout.isRunning()) workout.stop(now); else {workoutZones=profiles.selected();hasWorkout=true;workout.start(now);}
@@ -63,15 +64,16 @@ public class MainActivity extends Activity {
             refreshWorkout(now);
         });
         pauseResume.setEnabled(false);
-        elapsed=new TextView(this); elapsed.setTextColor(Color.WHITE); elapsed.setTextSize(20);
+        elapsed=new TextView(this); elapsed.setTextColor(Color.WHITE); elapsed.setTextSize(36);
         elapsed.setGravity(Gravity.CENTER); elapsed.setText("0:00");
-        actions.addView(elapsed,new LinearLayout.LayoutParams((int)(120*getResources().getDisplayMetrics().density),-1));
+        actions.addView(elapsed,new LinearLayout.LayoutParams(0,-2,1));
         root.addView(heart,new LinearLayout.LayoutParams(-1,0,1));
         root.addView(power,new LinearLayout.LayoutParams(-1,0,1));
         root.addView(cadence,new LinearLayout.LayoutParams(-1,0,1));
     }
     Button button(LinearLayout row,String label,Runnable action) {
-        Button b=new Button(this); b.setText(label); b.setAllCaps(false); b.setTextSize(15); row.addView(b,new LinearLayout.LayoutParams(0,-2,1)); b.setOnClickListener(v->action.run());return b;
+        float density=getResources().getDisplayMetrics().density;
+        Button b=new Button(this); b.setText(label); b.setAllCaps(false); b.setTextSize(12); b.setMinWidth(0); b.setMinimumWidth(0); b.setMinHeight(0); b.setMinimumHeight(0); b.setPadding(2,0,2,0); row.addView(b,new LinearLayout.LayoutParams((int)(84*density),(int)(32*density))); b.setOnClickListener(v->action.run());return b;
     }
     void refreshWorkout(long now){
         startStop.setText(workout.isRunning()?"Stop":"Start");
@@ -82,9 +84,26 @@ public class MainActivity extends Activity {
         heart.invalidate();power.invalidate();cadence.invalidate();
     }
     void saveProfiles(){
+        String user=selectedUser();
+        for(Sensor sensor:new Sensor[]{hr,watts})if(!Objects.equals(sensor.owner,user)){sensor.stop();sensor.device=null;sensor.owner=user;}
         getSharedPreferences("riders",MODE_PRIVATE).edit().putString("profiles",profiles.encode()).apply();
         userButton.setText(profiles.selected()==null?"User":profiles.selected().name);
         heart.invalidate();
+    }
+    String selectedUser(){return profiles.selected()==null?null:profiles.selected().name.toLowerCase(Locale.ROOT);}
+    void reconnect(){
+        if(selectedUser()==null){Toast.makeText(this,"Select a user",Toast.LENGTH_SHORT).show();return;}
+        if(adapter==null||!getPackageManager().hasSystemFeature("android.hardware.bluetooth_le")){Toast.makeText(this,"Bluetooth unavailable",Toast.LENGTH_SHORT).show();return;}
+        if(!adapter.isEnabled()){startActivity(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE));return;}
+        stopScan();
+        boolean found=false;
+        for(Sensor sensor:new Sensor[]{hr,watts}){
+            String address=getSharedPreferences("devices",MODE_PRIVATE).getString(selectedUser()+"/"+sensor.service,"");
+            if(BluetoothAdapter.checkBluetoothAddress(address)){
+                sensor.stop();sensor.owner=selectedUser();sensor.device=adapter.getRemoteDevice(address);sensor.connect();found=true;
+            }
+        }
+        if(!found)Toast.makeText(this,"No saved devices",Toast.LENGTH_SHORT).show();
     }
     void chooseUser(){
         if(workout.isRunning())return;
@@ -139,7 +158,7 @@ public class MainActivity extends Activity {
         final ArrayList<BluetoothDevice> devices=new ArrayList<>();
         final ArrayAdapter<String> rows=new ArrayAdapter<>(this,android.R.layout.simple_list_item_1);
         final AlertDialog dialog=new AlertDialog.Builder(this).setTitle(sensor.label).setAdapter(rows,(d,index)->{
-            stopScan();sensor.stop();sensor.device=devices.get(index);sensor.connect();
+            stopScan();sensor.stop();sensor.owner=selectedUser();sensor.device=devices.get(index);sensor.connect();
         }).setNegativeButton("Cancel",null).create();
         dialog.setOnDismissListener(d->stopScan()); dialog.show();
         scanner=(device,rssi,record)->ui.post(()->{
@@ -150,7 +169,7 @@ public class MainActivity extends Activity {
         ui.postDelayed(scanTimeout,15000);
     }
     class Sensor {
-        String label; UUID service,characteristic; Graph graph; BluetoothDevice device; BluetoothGatt gatt;
+        String label,owner; UUID service,characteristic; Graph graph; BluetoothDevice device; BluetoothGatt gatt;
         boolean active; int failures; Runnable retry,timeout;
         Sensor(String l,String s,String c,Graph v){label=l;service=uuid(s);characteristic=uuid(c);graph=v;}
         void status(String s){graph.status=s;graph.invalidate();if(graph==power){cadence.status=s;cadence.invalidate();}}
@@ -193,6 +212,7 @@ public class MainActivity extends Activity {
             public void onDescriptorWrite(BluetoothGatt g,BluetoothGattDescriptor d,int result){ui.post(()->{
                 if(g!=gatt)return;if(result!=0){failed("Subscription failed ("+result+")");return;}
                 cancelTimers();failures=0;Sensor.this.status("Connected");
+                if(owner!=null)getSharedPreferences("devices",MODE_PRIVATE).edit().putString(owner+"/"+service,device.getAddress()).apply();
             });}
             public void onCharacteristicChanged(BluetoothGatt g,BluetoothGattCharacteristic c){
                 byte[] original=c.getValue();final byte[] bytes=original==null?null:original.clone();
