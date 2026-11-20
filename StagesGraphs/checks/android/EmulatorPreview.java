@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.view.View;
 import android.widget.TextView;
 
 /** Included only in the emulator preview APK, never in the bike APK. */
@@ -29,11 +30,13 @@ public final class EmulatorPreview extends Instrumentation {
                 long time=begin+duration*i/180;
                 activity.workout.heart.observe(hr,time);
                 activity.workout.power.observe((int)Math.round(220+65*Math.sin(i/15.0)),time);
+                activity.workout.cadence.observe((int)Math.round(85+10*Math.sin(i/20.0)),time);
                 activity.workout.sample(time);
             }
             activity.workout.stop(end);activity.refreshWorkout(end);
+            activity.cadence.setVisibility(View.VISIBLE);
             TextView banner=new TextView(activity);
-            banner.setText("Emulator preview · synthetic readings");banner.setTextColor(Color.LTGRAY);banner.setTextSize(12);
+            banner.setText("Emulator preview - synthetic readings");banner.setTextColor(Color.LTGRAY);banner.setTextSize(12);
             activity.root.addView(banner,0);
         });
         Bundle status=new Bundle();status.putString("stream","Preview ready\n");sendStatus(0,status);

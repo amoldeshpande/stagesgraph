@@ -22,8 +22,8 @@ if($LASTEXITCODE -ne 0){throw 'DEX conversion failed'}
 [xml]$xml=Get-Content -LiteralPath "$project\app\src\main\AndroidManifest.xml"
 $xml.manifest.SetAttribute('package','com.stagesgraphs')
 $ns='http://schemas.android.com/apk/res/android'
-$xml.manifest.SetAttribute('versionCode',$ns,'8') | Out-Null
-$xml.manifest.SetAttribute('versionName',$ns,'1.6') | Out-Null
+$xml.manifest.SetAttribute('versionCode',$ns,'12') | Out-Null
+$xml.manifest.SetAttribute('versionName',$ns,'1.6.4') | Out-Null
 $uses=$xml.CreateElement('uses-sdk')
 $uses.SetAttribute('minSdkVersion',$ns,'22') | Out-Null
 $uses.SetAttribute('targetSdkVersion',$ns,'22') | Out-Null

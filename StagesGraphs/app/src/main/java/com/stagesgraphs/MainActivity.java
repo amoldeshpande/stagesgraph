@@ -41,39 +41,50 @@ public class MainActivity extends Activity {
         root=new LinearLayout(this); root.setOrientation(1); root.setPadding(20,10,20,10); root.setBackgroundColor(Color.rgb(10,17,29));
         setContentView(root);
         profiles=ZoneProfiles.decode(getSharedPreferences("riders",MODE_PRIVATE).getString("profiles",""));
-        LinearLayout actions=new LinearLayout(this); root.addView(actions);
+        LinearLayout actions=new LinearLayout(this); actions.setGravity(Gravity.CENTER_VERTICAL); root.addView(actions);
+        LinearLayout controls=new LinearLayout(this); actions.addView(controls,new LinearLayout.LayoutParams(0,-2));
+        actions.addOnLayoutChangeListener((v,l,t,r,b,oldL,oldT,oldR,oldB)->{
+            if(r-l==oldR-oldL)return;
+            float scale=(r-l)/1000f;
+            LinearLayout.LayoutParams layout=(LinearLayout.LayoutParams)controls.getLayoutParams();
+            layout.leftMargin=Math.round(54*scale);layout.width=Math.round((984-54-28)*2f/3*scale);
+            controls.setLayoutParams(layout);
+        });
         heart=new Graph("Heart rate","",Color.rgb(255,106,139),220,workout.heart);
         power=new Graph("Power","W",Color.rgb(63,211,236),400,workout.power);
         cadence=new Graph("Cadence","rpm",Color.rgb(170,150,255),120,workout.cadence);
         cadence.setVisibility(View.GONE);
         hr=new Sensor("Heart rate","180d","2a37",heart);
         watts=new Sensor("Power meter","1818","2a63",power);
-        userButton=button(actions,profiles.selected()==null?"User":profiles.selected().name,()->chooseUser());
+        userButton=button(controls,profiles.selected()==null?"User":profiles.selected().name,()->chooseUser());
         userButton.setSingleLine(true);userButton.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        button(actions,"Heart rate",()->choose(hr));
-        button(actions,"Power",()->choose(watts));
-        button(actions,"Reconnect",()->reconnect());
-        startStop=button(actions,"Start",()->{
+        button(controls,"Heart rate",()->choose(hr));
+        button(controls,"Power",()->choose(watts));
+        button(controls,"Reconnect",()->reconnect());
+        startStop=button(controls,"Start",()->{
             long now=SystemClock.elapsedRealtime();
             if(workout.isRunning()) workout.stop(now); else {workoutZones=profiles.selected();hasWorkout=true;workout.start(now);}
             refreshWorkout(now);
         });
-        pauseResume=button(actions,"Pause",()->{
+        pauseResume=button(controls,"Pause",()->{
             long now=SystemClock.elapsedRealtime();
             if(workout.isPaused()) workout.resume(now); else workout.pause(now);
             refreshWorkout(now);
         });
         pauseResume.setEnabled(false);
+        actions.addView(new View(this),new LinearLayout.LayoutParams(0,0,1));
         elapsed=new TextView(this); elapsed.setTextColor(Color.WHITE); elapsed.setTextSize(36);
         elapsed.setGravity(Gravity.CENTER); elapsed.setText("0:00");
-        actions.addView(elapsed,new LinearLayout.LayoutParams(0,-2,1));
+        LinearLayout.LayoutParams timerLayout=new LinearLayout.LayoutParams((int)(120*getResources().getDisplayMetrics().density),-2);
+        timerLayout.leftMargin=(int)(24*getResources().getDisplayMetrics().density);
+        actions.addView(elapsed,timerLayout);
         root.addView(heart,new LinearLayout.LayoutParams(-1,0,1));
         root.addView(power,new LinearLayout.LayoutParams(-1,0,1));
         root.addView(cadence,new LinearLayout.LayoutParams(-1,0,1));
     }
     Button button(LinearLayout row,String label,Runnable action) {
         float density=getResources().getDisplayMetrics().density;
-        Button b=new Button(this); b.setText(label); b.setAllCaps(false); b.setTextSize(12); b.setMinWidth(0); b.setMinimumWidth(0); b.setMinHeight(0); b.setMinimumHeight(0); b.setPadding(2,0,2,0); row.addView(b,new LinearLayout.LayoutParams((int)(84*density),(int)(32*density))); b.setOnClickListener(v->action.run());return b;
+        Button b=new Button(this); b.setText(label); b.setAllCaps(false); b.setTextSize(15); b.setMinWidth(0); b.setMinimumWidth(0); b.setMinHeight(0); b.setMinimumHeight(0); b.setPadding(2,0,2,0); row.addView(b,new LinearLayout.LayoutParams(0,(int)(48*density),1)); b.setOnClickListener(v->action.run());return b;
     }
     void refreshWorkout(long now){
         startStop.setText(workout.isRunning()?"Stop":"Start");
