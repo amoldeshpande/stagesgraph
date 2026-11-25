@@ -50,6 +50,10 @@ if ($LASTEXITCODE -ne 0) { throw 'Workout checks failed' }
 if ($LASTEXITCODE -ne 0) { throw 'Zone/profile check compilation failed' }
 & (Join-Path $env:JAVA_HOME 'bin\java.exe') -cp $env:TEMP ZoneProfilesCheck
 if ($LASTEXITCODE -ne 0) { throw 'Zone/profile checks failed' }
+& (Join-Path $env:JAVA_HOME 'bin\javac.exe') -encoding UTF-8 -d $env:TEMP (Join-Path $project 'app\src\main\java\com\stagesgraphs\ProfilePassword.java') (Join-Path $project 'checks\ProfilePasswordCheck.java')
+if ($LASTEXITCODE -ne 0) { throw 'Password check compilation failed' }
+& (Join-Path $env:JAVA_HOME 'bin\java.exe') -cp $env:TEMP ProfilePasswordCheck
+if ($LASTEXITCODE -ne 0) { throw 'Password checks failed' }
 & (Join-Path $localTools 'gradle-8.7\bin\gradle.bat') -p $project --no-daemon --stacktrace '-Dorg.gradle.java.installations.auto-download=false' assembleDebug
 if ($LASTEXITCODE -ne 0) {
     Write-Output 'Using resource-free portable APK packaging after Gradle build failure.'

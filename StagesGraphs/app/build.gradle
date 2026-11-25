@@ -9,8 +9,8 @@ android {
         applicationId 'com.stagesgraphs'
         minSdk 22
         targetSdk 22
-        versionCode 12
-        versionName '1.6.4'
+        versionCode 13
+        versionName '1.7'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8

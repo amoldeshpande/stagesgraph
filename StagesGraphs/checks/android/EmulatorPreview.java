@@ -10,7 +10,8 @@ import android.widget.TextView;
 
 /** Included only in the emulator preview APK, never in the bike APK. */
 public final class EmulatorPreview extends Instrumentation {
-    @Override public void onCreate(Bundle arguments) { super.onCreate(arguments); start(); }
+    String screen;
+    @Override public void onCreate(Bundle arguments) { super.onCreate(arguments);screen=arguments==null?null:arguments.getString("screen");start(); }
     @Override public void onStart() {
         Intent intent=new Intent(getTargetContext(),MainActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -38,6 +39,10 @@ public final class EmulatorPreview extends Instrumentation {
             TextView banner=new TextView(activity);
             banner.setText("Emulator preview - synthetic readings");banner.setTextColor(Color.LTGRAY);banner.setTextSize(12);
             activity.root.addView(banner,0);
+            if("password".equals(screen)){
+                activity.getSharedPreferences("passwords",0).edit().putString("preview",ProfilePassword.create("1234")).commit();
+                activity.protect(profile,()->activity.editUserForm(profile));
+            }
         });
         Bundle status=new Bundle();status.putString("stream","Preview ready\n");sendStatus(0,status);
         // Leave the preview Activity visible for inspection.

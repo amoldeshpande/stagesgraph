@@ -102,6 +102,37 @@ public class MainActivity extends Activity {
         heart.invalidate();
     }
     String selectedUser(){return profiles.selected()==null?null:profiles.selected().name.toLowerCase(Locale.ROOT);}
+    EditText passwordField(String label){
+        EditText field=new EditText(this);field.setSingleLine(true);field.setHint(label);field.setContentDescription(label);
+        field.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        field.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(64)});
+        return field;
+    }
+    void protect(final ZoneProfiles.Profile profile,final Runnable action){
+        if(profile==null){Toast.makeText(this,"Select a user",Toast.LENGTH_SHORT).show();return;}
+        String stored=getSharedPreferences("passwords",MODE_PRIVATE).getString(profile.name.toLowerCase(Locale.ROOT),null);
+        if(stored==null){setPassword(profile,action);return;}
+        EditText password=passwordField("Password");
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle(profile.name).setView(password).setPositiveButton("Unlock",null).setNegativeButton("Cancel",null).create();
+        dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
+            if(!ProfilePassword.matches(password.getText().toString(),stored)){password.setError("Incorrect password");return;}
+            dialog.dismiss();action.run();
+        }));dialog.show();
+    }
+    void setPassword(final ZoneProfiles.Profile profile,final Runnable action){
+        LinearLayout form=new LinearLayout(this);form.setOrientation(1);
+        int padding=(int)(16*getResources().getDisplayMetrics().density);form.setPadding(padding,padding,padding,padding);
+        EditText password=passwordField("New password"),confirm=passwordField("Confirm password");form.addView(password);form.addView(confirm);
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Set password: "+profile.name).setView(form).setPositiveButton("Save",null).setNegativeButton("Cancel",null).create();
+        dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
+            if(!password.getText().toString().equals(confirm.getText().toString())){confirm.setError("Passwords do not match");return;}
+            try{
+                String stored=ProfilePassword.create(password.getText().toString());
+                getSharedPreferences("passwords",MODE_PRIVATE).edit().putString(profile.name.toLowerCase(Locale.ROOT),stored).apply();
+                dialog.dismiss();action.run();
+            }catch(IllegalArgumentException invalid){password.setError(invalid.getMessage());}
+        }));dialog.show();
+    }
     void reconnect(){
         if(selectedUser()==null){Toast.makeText(this,"Select a user",Toast.LENGTH_SHORT).show();return;}
         if(adapter==null||!getPackageManager().hasSystemFeature("android.hardware.bluetooth_le")){Toast.makeText(this,"Bluetooth unavailable",Toast.LENGTH_SHORT).show();return;}
@@ -122,19 +153,30 @@ public class MainActivity extends Activity {
         ArrayList<String> labels=new ArrayList<>();
         for(ZoneProfiles.Profile profile:users)labels.add(profile.name);
         labels.add("Add user");
-        if(profiles.selected()!=null)labels.add("Edit zones");
+        if(profiles.selected()!=null){labels.add("Edit zones");labels.add("Password");}
         new AlertDialog.Builder(this).setTitle("User").setItems(labels.toArray(new String[0]),(d,index)->{
             if(index<users.size()){profiles.select(users.get(index).name);saveProfiles();}
-            else editUser(index==users.size()?null:profiles.selected());
+            else if(index==users.size())editUser(null);
+            else if(index==users.size()+1)editUser(profiles.selected());
+            else {
+                ZoneProfiles.Profile profile=profiles.selected();
+                if(getSharedPreferences("passwords",MODE_PRIVATE).contains(profile.name.toLowerCase(Locale.ROOT)))protect(profile,()->setPassword(profile,()->{}));
+                else setPassword(profile,()->{});
+            }
         }).setNegativeButton("Cancel",null).show();
     }
     void editUser(final ZoneProfiles.Profile existing){
+        if(existing==null)editUserForm(null);else protect(existing,()->editUserForm(existing));
+    }
+    void editUserForm(final ZoneProfiles.Profile existing){
         LinearLayout form=new LinearLayout(this);form.setOrientation(1);
         int padding=(int)(16*getResources().getDisplayMetrics().density);form.setPadding(padding,padding,padding,padding);
         TextView nameLabel=new TextView(this);nameLabel.setText("Username");form.addView(nameLabel);
-        EditText name=new EditText(this);name.setSingleLine(true);name.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        EditText name=new EditText(this);name.setContentDescription("Username");name.setSingleLine(true);name.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         name.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(32)});
         if(existing!=null){name.setText(existing.name);name.setEnabled(false);}form.addView(name);
+        EditText password=passwordField("Password"),confirm=passwordField("Confirm password");
+        if(existing==null){form.addView(password);form.addView(confirm);}
         EditText[] boundaries=new EditText[4];
         for(int i=0;i<4;i++){
             LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);
@@ -152,7 +194,13 @@ public class MainActivity extends Activity {
             try{
                 if(existing==null&&profiles.find(name.getText().toString())!=null){name.setError("User already exists");return;}
                 int[] starts=new int[4];for(int i=0;i<4;i++)starts[i]=Integer.parseInt(boundaries[i].getText().toString());
-                profiles.save(new ZoneProfiles.Profile(name.getText().toString(),starts));saveProfiles();dialog.dismiss();
+                ZoneProfiles.Profile profile=new ZoneProfiles.Profile(name.getText().toString(),starts);
+                if(existing==null){
+                    if(!password.getText().toString().equals(confirm.getText().toString())){confirm.setError("Passwords do not match");return;}
+                    String stored=ProfilePassword.create(password.getText().toString());
+                    getSharedPreferences("passwords",MODE_PRIVATE).edit().putString(profile.name.toLowerCase(Locale.ROOT),stored).apply();
+                }
+                profiles.save(profile);saveProfiles();dialog.dismiss();
             }catch(NumberFormatException invalid){Toast.makeText(this,"Enter all four zone starts",Toast.LENGTH_SHORT).show();}
             catch(IllegalArgumentException invalid){Toast.makeText(this,invalid.getMessage(),Toast.LENGTH_SHORT).show();}
         }));dialog.show();
@@ -163,6 +211,9 @@ public class MainActivity extends Activity {
     Runnable scanTimeout;
     void stopScan(){if(scanner!=null&&adapter!=null){adapter.stopLeScan(scanner);scanner=null;}if(scanTimeout!=null)ui.removeCallbacks(scanTimeout);}
     void choose(final Sensor sensor) {
+        protect(profiles.selected(),()->scan(sensor));
+    }
+    void scan(final Sensor sensor) {
         if(adapter==null||!getPackageManager().hasSystemFeature("android.hardware.bluetooth_le")){sensor.status("Bluetooth unavailable");return;}
         if(!adapter.isEnabled()){startActivity(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE));return;}
         stopScan();

@@ -9,7 +9,7 @@ $classes=Join-Path $portable 'classes'
 $staging=Join-Path $portable 'apk'
 New-Item -ItemType Directory -Force -Path $classes,$staging | Out-Null
 $sources=Get-ChildItem -LiteralPath (Join-Path $project 'app\src\main\java\com\stagesgraphs') -Filter '*.java' | ForEach-Object {$_.FullName}
-if($Preview){$sources+=Join-Path $project 'checks\android\EmulatorPreview.java'}
+if($Preview){$sources+=Get-ChildItem -LiteralPath "$project\checks\android" -Filter '*.java' | ForEach-Object {$_.FullName}}
 & "$env:JAVA_HOME\bin\javac.exe" -encoding UTF-8 -source 8 -target 8 -classpath "$sdk\platforms\android-28\android.jar" -d $classes @sources
 if($LASTEXITCODE -ne 0){throw 'Portable Java compilation failed'}
 & node "$project\checks\verify-text.js" "$classes\com\stagesgraphs\MainActivity.class"
@@ -22,8 +22,8 @@ if($LASTEXITCODE -ne 0){throw 'DEX conversion failed'}
 [xml]$xml=Get-Content -LiteralPath "$project\app\src\main\AndroidManifest.xml"
 $xml.manifest.SetAttribute('package','com.stagesgraphs')
 $ns='http://schemas.android.com/apk/res/android'
-$xml.manifest.SetAttribute('versionCode',$ns,'12') | Out-Null
-$xml.manifest.SetAttribute('versionName',$ns,'1.6.4') | Out-Null
+$xml.manifest.SetAttribute('versionCode',$ns,'13') | Out-Null
+$xml.manifest.SetAttribute('versionName',$ns,'1.7') | Out-Null
 $uses=$xml.CreateElement('uses-sdk')
 $uses.SetAttribute('minSdkVersion',$ns,'22') | Out-Null
 $uses.SetAttribute('targetSdkVersion',$ns,'22') | Out-Null
@@ -32,10 +32,12 @@ if($Preview){
     $application=$xml.manifest.SelectSingleNode('application')
     $application.SetAttribute('label',$ns,'Stages Graphs preview') | Out-Null
     $application.SetAttribute('debuggable',$ns,'true') | Out-Null
-    $instrumentation=$xml.CreateElement('instrumentation')
-    $instrumentation.SetAttribute('name',$ns,'com.stagesgraphs.EmulatorPreview') | Out-Null
-    $instrumentation.SetAttribute('targetPackage',$ns,'com.stagesgraphs') | Out-Null
-    $xml.manifest.AppendChild($instrumentation) | Out-Null
+    foreach($runner in @('EmulatorPreview','PasswordUiCheck')){
+        $instrumentation=$xml.CreateElement('instrumentation')
+        $instrumentation.SetAttribute('name',$ns,"com.stagesgraphs.$runner") | Out-Null
+        $instrumentation.SetAttribute('targetPackage',$ns,'com.stagesgraphs') | Out-Null
+        $xml.manifest.AppendChild($instrumentation) | Out-Null
+    }
 }
 function Convert-Element($element){
     $attributes=@($element.Attributes | Where-Object {$_.NamespaceURI -ne 'http://www.w3.org/2000/xmlns/'} | ForEach-Object {
